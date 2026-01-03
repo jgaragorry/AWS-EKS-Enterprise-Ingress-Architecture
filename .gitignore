@@ -1,0 +1,26 @@
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+*.log
+
+# Terragrunt cache
+.terragrunt-cache*
+**/.terragrunt-cache/*
+
+# Exclude sensitive vars
+*.tfvars
+!example.tfvars
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.idea/
+.vscode/
