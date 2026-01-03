@@ -1,207 +1,181 @@
-# ☁️ AWS EKS Enterprise Architecture | IaC with Terragrunt
+# 🧪 Guía de Entrenamiento: Ciclo de Vida EKS (Paso a Paso)
 
-![Terraform](https://img.shields.io/badge/Terraform-1.10+-purple?style=for-the-badge&logo=terraform)
-![Terragrunt](https://img.shields.io/badge/Terragrunt-v0.50+-green?style=for-the-badge)
-![AWS](https://img.shields.io/badge/AWS-EKS-orange?style=for-the-badge&logo=amazon-aws)
-![Status](https://img.shields.io/badge/Status-Stable-blue?style=for-the-badge)
-
-> **"Infraestructura inmutable, segura y escalable para cargas de trabajo críticas."**
-
-Este repositorio contiene una implementación completa de un clúster **Kubernetes (EKS)** listo para producción, utilizando **Terraform** y **Terragrunt** bajo la filosofía **DRY** (Don't Repeat Yourself) y principios de **FinOps**.
+Este documento es el **Manual de Operaciones**. Su objetivo es guiarte en la ejecución repetitiva del laboratorio para dominar los comandos de Terraform, Terragrunt y Kubernetes.
 
 ---
 
-## 🏗️ Arquitectura del Laboratorio
+## 🔁 El Ciclo del Éxito (Workflow)
 
-Esta arquitectura despliega una red VPC aislada y un clúster EKS con nodos gestionados, siguiendo las mejores prácticas de seguridad (Nodos en subnets privadas, NAT Gateway para salida a internet).
-
-### Diagrama de Infraestructura
-
-```mermaid
-graph TD
-    User((Usuario)) --> Internet
-    Internet --> IGW[Internet Gateway]
-    
-    subgraph VPC [AWS VPC (10.0.0.0/16)]
-        direction TB
-        IGW --> PublicSubnet1
-        IGW --> PublicSubnet2
-        
-        subgraph PublicZone [Zona Pública]
-            PublicSubnet1[Subnet Pub A]
-            PublicSubnet2[Subnet Pub B]
-            NAT[NAT Gateway]
-        end
-        
-        PublicSubnet1 --> NAT
-        
-        subgraph PrivateZone [Zona Privada]
-            PrivateSubnet1[Subnet Priv A]
-            PrivateSubnet2[Subnet Priv B]
-            Node1[EKS Node 1]
-            Node2[EKS Node 2]
-        end
-        
-        NAT --> PrivateSubnet1
-        NAT --> PrivateSubnet2
-        
-        PrivateSubnet1 --- Node1
-        PrivateSubnet2 --- Node2
-    end
-    
-    EKS[EKS Control Plane] -.-> PrivateZone
-```
-
-### 🧩 Componentes Tecnológicos
-* **Orquestación:** Terraform & Terragrunt.
-* **Nube:** AWS (Región: `us-east-1`).
-* **Red:** VPC Modular con Subnets Públicas/Privadas y NAT Gateway.
-* **Cómputo:** EKS (Control Plane) + Managed Node Groups (Instancias `t3.medium`).
-* **Addons:** CoreDNS, VPC-CNI, Kube-Proxy (Gestión automatizada por Terraform).
-* **Seguridad:** IAM Roles for Service Accounts (IRSA).
-* **FinOps:** Scripts de auditoría automatizada y destrucción limpia.
+El objetivo es completar este ciclo sin errores:
+1.  **Init** (Preparar el terreno)
+2.  **Plan & Apply** (Construir Infraestructura)
+3.  **Validate** (Probar que funciona)
+4.  **Destroy** (Limpiar para evitar costos)
 
 ---
 
-## 🎯 Objetivos de Aprendizaje
+## 🏁 Fase 1: Preparación (Solo la primera vez)
 
-Este laboratorio está diseñado para enseñar:
-1.  **IaC Modular:** Separación estricta entre código (`modules`) y configuración (`live`).
-2.  **Gestión de Dependencias:** Orquestación del orden de despliegue (VPC antes que EKS) usando Terragrunt.
-3.  **Troubleshooting Senior:** Resolución de conflictos de versiones (AWS Provider v5 vs v6) y manejo de "Race Conditions" en addons.
-4.  **Estrategia FinOps:** Cómo auditar recursos huérfanos para garantizar **Costo $0** al apagar el laboratorio.
-
----
-
-## 📂 Estructura del Repositorio
-
-```text
-.
-├── live/                   # 🧠 EL CEREBRO (Instanciación de entornos)
-│   ├── root.hcl            # Configuración global (State Bucket, Provider Version)
-│   └── prod/               # Entorno de Producción
-│       ├── vpc/            # Instancia de la Red
-│       └── eks/            # Instancia del Clúster
-├── modules/                # 💪 EL MÚSCULO (Código Reutilizable - Terraform puro)
-│   ├── vpc-network/        # Definición de VPC, Subnets, IGW, NAT
-│   ├── eks-cluster/        # Definición de EKS, Nodos, IAM, Addons
-│   └── k8s-addons/         # (Placeholder) Futuros Helm charts
-└── scripts/                # 🛠️ HERRAMIENTAS DE AUTOMATIZACIÓN
-    ├── 00_init_backend.sh  # Crea el Bucket S3 para el tfstate y DynamoDB
-    ├── audit_resources.sh  # Auditoría exhaustiva de costos (FinOps)
-    └── destroy_all.sh      # Script de destrucción segura
-```
-
----
-
-## 🚀 Guía de Inicio (Paso a Paso)
-
-Sigue este orden estricto para levantar el laboratorio con éxito.
-
-### Fase 0: Prerrequisitos
-Asegúrate de tener instalado y configurado:
-* AWS CLI (`aws configure`)
-* Terraform (`>= 1.10`)
-* Terragrunt
-* Kubectl
-
-### Fase 1: Inicialización del Backend (S3 + DynamoDB)
-Terraform necesita un lugar remoto para guardar el estado del sistema.
+Si acabas de clonar el repo o es una cuenta nueva de AWS:
 
 ```bash
+# 1. Dar permisos de ejecución a los scripts
 chmod +x scripts/*.sh
+
+# 2. Inicializar el Backend Remoto (S3 + DynamoDB)
 ./scripts/00_init_backend.sh
 ```
 
-### Fase 2: Despliegue de la Red (VPC)
-Construimos la carretera antes que los coches.
+---
+
+## 🚀 Fase 2: Despliegue (El Laboratorio)
+
+### Paso 2.1: Capa de Red (VPC)
+Siempre desplegamos la red primero. Es la base.
 
 ```bash
+# Ir al directorio de la VPC
 cd live/prod/vpc
+
+# Descargar proveedores y módulos
 terragrunt init
+
+# Desplegar (Revisa el plan antes de confirmar o usa auto-approve)
 terragrunt apply -auto-approve
 ```
-* **Tiempo estimado:** 2-3 minutos.
-* **Nota:** A partir de aquí el NAT Gateway empieza a facturar ($0.045/h).
+* **Hito:** Al terminar, tendrás una VPC con NAT Gateway. (A partir de aquí **AWS cobra**).
 
-### Fase 3: Despliegue del Clúster (EKS)
-El cerebro de Kubernetes y los nodos de trabajo.
+### Paso 2.2: Capa de Cómputo (EKS Cluster)
+Desplegamos el cerebro y los nodos.
 
 ```bash
+# Ir al directorio del EKS
 cd ../eks
+
+# Inicializar
 terragrunt init
+
+# Desplegar (Esto tomará ~15-20 minutos)
 terragrunt apply -auto-approve
 ```
-* **Tiempo estimado:** 15-20 minutos.
-* **Troubleshooting:** Si ves un error de *Timeout* relacionado con `aws-ebs-csi-driver`, vuelve a ejecutar el comando `apply`. Es una condición de carrera conocida en cuentas nuevas.
 
-### Fase 4: Validación (Prueba de Fuego)
-Confirmamos que el clúster está vivo y puede ejecutar aplicaciones.
+---
+
+## 🔧 Fase 3: Resolución de Problemas Comunes
+
+### 🔴 Caso: Timeout del `aws-ebs-csi-driver`
+Si ves un error rojo después de 20 minutos que dice `timeout while waiting for state to become 'ACTIVE'`:
+
+1.  **No entres en pánico.** Es una "condición de carrera" normal en laboratorios nuevos.
+2.  **Solución Rápida:** Simplemente vuelve a ejecutar el comando:
+    ```bash
+    terragrunt apply -auto-approve
+    ```
+    *(La segunda vez funcionará en segundos porque la infraestructura base ya existe).*
+
+### 🔴 Caso: Error de "Lock" (Bloqueo)
+Si se corta internet o cancelas el proceso a la mitad, Terraform puede dejar el estado bloqueado en DynamoDB.
+* **Solución:** Ve a la consola de AWS -> DynamoDB -> Tablas -> Busca la tabla de "lock" y borra el ítem que contiene el `LockID`.
+
+---
+
+## 🧪 Fase 4: Validación (La Prueba de Fuego)
+
+No confíes en el mensaje verde de Terraform. Verifica que el clúster realmente funcione.
 
 ```bash
-# 1. Configurar contexto local de Kubernetes
+# 1. Conectar tu terminal local con el clúster de AWS
 aws eks update-kubeconfig --region us-east-1 --name eks-enterprise-prod
 
-# 2. Verificar estado de los nodos
+# 2. Verificar que los nodos están "Ready"
 kubectl get nodes
 
-# 3. Desplegar una app de prueba (Nginx)
+# 3. Lanzar una aplicación de prueba (Nginx)
 kubectl run nginx --image=nginx
+
+# 4. Ver en tiempo real cómo nace el pod
 kubectl get pods -w
 ```
-*(Debes ver el estado pasar de `Pending` -> `ContainerCreating` -> `Running`)*.
+* **Éxito:** Cuando veas el estado **`Running`**.
+* **Limpieza de prueba:** `kubectl delete pod nginx`
 
 ---
 
-## 💰 Estimación de Costos (FinOps)
+## 💣 Fase 5: Destrucción (FinOps - CRÍTICO)
 
-Mantener este laboratorio encendido cuesta aproximadamente **$0.23 USD por hora**.
+Para asegurar que tu factura sea **$0.00** al terminar la práctica.
+**⚠️ ORDEN ESTRICTO:** Primero lo de arriba (Apps/Cluster), luego lo de abajo (Red).
 
-| Recurso | Detalle | Costo Aprox. |
-| :--- | :--- | :--- |
-| **EKS Control Plane** | Tarifa fija por clúster | $0.10 / h |
-| **NAT Gateway** | 1 por zona pública | $0.045 / h |
-| **EC2 Instances** | 2 nodos t3.medium | $0.083 / h |
-| **EBS Volumes** | 2 discos de 20GB | ~$0.005 / h |
-| **TOTAL** | | **~$0.23 USD / Hora** |
+### Paso 5.1: Destruir EKS
+```bash
+cd ~/AWS-EKS-Enterprise-Ingress-Architecture/live/prod/eks
+terragrunt destroy -auto-approve
+```
+*(Espera a que termine completamente antes de seguir).*
 
----
+### Paso 5.2: Destruir VPC
+```bash
+cd ~/AWS-EKS-Enterprise-Ingress-Architecture/live/prod/vpc
+terragrunt destroy -auto-approve
+```
 
-## 💣 Limpieza Total (Destrucción Segura)
+### Paso 5.3: Auditoría Final (La prueba de la tranquilidad)
+Ejecuta este script para dormir tranquilo.
 
-Para evitar costos sorpresa, sigue este procedimiento de destrucción inversa.
-
-**⚠️ IMPORTANTE:** No borres la VPC si el EKS sigue vivo, o dejarás recursos "zombies" que cobran dinero.
-
-1.  **Paso 1: Destruir EKS** (~10 min)
-    ```bash
-    cd live/prod/eks
-    terragrunt destroy -auto-approve
-    ```
-
-2.  **Paso 2: Destruir VPC** (~2 min)
-    ```bash
-    cd ../vpc
-    terragrunt destroy -auto-approve
-    ```
-
-3.  **Paso 3: Auditoría Final (Crucial)**
-    Ejecuta el script de auditoría para confirmar que no quedó nada vivo (especialmente NAT Gateways o Discos).
-    ```bash
-    cd ../../../
-    ./scripts/audit_resources.sh
-    ```
-    *Busca el mensaje: `[✔] ... : Limpio (0 encontrados)`*
+```bash
+cd ~/AWS-EKS-Enterprise-Ingress-Architecture
+./scripts/audit_resources.sh
+```
+* **Meta:** Todo debe salir en VERDE `[✔] ... Limpio`.
+* **Si sale ROJO:** Entra a la consola de AWS y borra el recurso manualmente.
 
 ---
 
-## 🏆 Mejores Prácticas Aplicadas en este Lab
+## 🧪 Capítulo Extra: Desplegando el Ambiente DEV (Low-Cost)
 
-* **Version Pinning:** Uso de `~> 5.0` en AWS Provider para evitar *breaking changes* automáticos.
-* **State Locking:** Uso de DynamoDB para evitar corrupción del estado si dos personas despliegan a la vez.
-* **Least Privilege:** Uso de roles IAM específicos para los nodos.
-* **Component Bypass:** Gestión de errores en addons no críticos (`ebs-csi-driver`) para priorizar la estabilidad de la red.
+Ahora que tienes una arquitectura modular, puedes levantar un entorno de desarrollo paralelo gastando la mitad de dinero.
+
+### 1. Desplegar Red DEV
+```bash
+cd ~/AWS-EKS-Enterprise-Ingress-Architecture/live/dev/vpc
+terragrunt apply -auto-approve
+```
+*Observa cómo se crea una VPC totalmente nueva llamada `vpc-enterprise-dev`.*
+
+### 2. Desplegar Cluster DEV
+```bash
+cd ../eks
+terragrunt apply -auto-approve
+```
+*Observa en el output que Terraform creará solo **1 nodo** tipo **t3.small**.*
+
+### 3. Switch de Contexto (Manejo de múltiples clusters)
+Para trabajar con DEV sin romper PROD, usa alias en kubectl:
+
+```bash
+# Conectar kubectl a DEV
+aws eks update-kubeconfig --region us-east-1 --name eks-enterprise-dev --alias dev
+
+# Conectar kubectl a PROD
+aws eks update-kubeconfig --region us-east-1 --name eks-enterprise-prod --alias prod
+
+# Cambiar rápido entre ellos
+kubectl config use-context dev
+kubectl get nodes   # Verás 1 nodo (Dev)
+
+kubectl config use-context prod
+kubectl get nodes   # Verás 2 nodos (Prod)
+```
 
 ---
 
-_Project maintained by Jose | AWS DevOps Lab 2026_
+## 🏆 Retos para dominar el tema
+
+Una vez te sientas cómodo con el ciclo básico, intenta esto en tus próximas repeticiones:
+
+1.  **Cambiar el tipo de instancia:** Ve a `live/prod/eks/terragrunt.hcl` (o el módulo) y cambia `t3.medium` por `t3.large`. Aplica y observa qué pasa.
+2.  **Escalar nodos:** Cambia `desired_size = 2` a `3`. Aplica y haz `kubectl get nodes`.
+3.  **Romperlo a propósito:** Intenta destruir la VPC sin destruir el EKS. Lee el error que te da AWS (Dependency Violation) para entender cómo se protegen los recursos.
+
+---
+_“La repetición es la madre de la retención.”_

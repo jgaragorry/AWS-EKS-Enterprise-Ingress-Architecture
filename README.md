@@ -38,6 +38,7 @@ graph TD
     EKS[EKS Control Plane] -.-> Node1
     EKS -.-> Node2
 ```
+
 #### 🔐 Estrategia de Seguridad (Defensa en Profundidad)
 
 Esta arquitectura implementa un modelo de seguridad de 3 capas:
@@ -69,24 +70,37 @@ Este laboratorio está diseñado para enseñar:
 
 ---
 
-## 📂 Estructura del Repositorio
+## 📂 Estructura del Repositorio (Estrategia DRY)
+
+Gracias a **Terragrunt**, reutilizamos el código de `modules/` para crear múltiples ambientes sin duplicar lógica.
 
 ```text
 .
 ├── live/                   # 🧠 EL CEREBRO (Instanciación de entornos)
-│   ├── root.hcl            # Configuración global (State Bucket, Provider Version)
-│   └── prod/               # Entorno de Producción
-│       ├── vpc/            # Instancia de la Red
-│       └── eks/            # Instancia del Clúster
-├── modules/                # 💪 EL MÚSCULO (Código Reutilizable - Terraform puro)
-│   ├── vpc-network/        # Definición de VPC, Subnets, IGW, NAT
-│   ├── eks-cluster/        # Definición de EKS, Nodos, IAM, Addons
-│   └── k8s-addons/         # (Placeholder) Futuros Helm charts
-└── scripts/                # 🛠️ HERRAMIENTAS DE AUTOMATIZACIÓN
-    ├── 00_init_backend.sh  # Crea el Bucket S3 para el tfstate y DynamoDB
-    ├── audit_resources.sh  # Auditoría exhaustiva de costos (FinOps)
-    └── destroy_all.sh      # Script de destrucción segura
+│   ├── root.hcl            # Configuración global (DRY Backend & Provider)
+│   ├── prod/               # 🏭 PROD: Alta Disponibilidad (t3.medium, 2 nodos)
+│   │   ├── vpc/
+│   │   └── eks/
+│   └── dev/                # 🧪 DEV: Low-Cost (t3.small, 1 nodo)
+│       ├── vpc/            # Misma VPC, diferente CIDR/Tags
+│       └── eks/            # Mismo Cluster, menos recursos
+├── modules/                # 💪 EL MÚSCULO (Terraform Puro - Reutilizable)
+│   ├── vpc-network/        # Definición genérica de Red
+│   └── eks-cluster/        # Definición genérica de EKS
+└── scripts/                # 🛠️ HERRAMIENTAS
+    └── audit_resources.sh  # Auditoría FinOps
 ```
+
+---
+
+### 🧩 Diferencias entre Ambientes (Configuración Dinámica)
+
+| Característica | Ambiente PROD 🏭 | Ambiente DEV 🧪 | Beneficio |
+| :--- | :--- | :--- | :--- |
+| **Código Base** | `modules/eks-cluster` | `modules/eks-cluster` | **100% Reutilización** |
+| **Instancia** | `t3.medium` | `t3.small` | Ahorro del 50% en cómputo |
+| **Nodos** | 2 (Alta Disp.) | 1 (Mínimo) | Ahorro del 50% en infraestructura |
+| **VPC** | `vpc-enterprise-prod` | `vpc-enterprise-dev` | Aislamiento total |
 
 ---
 
