@@ -1,8 +1,3 @@
-# ------------------------------------------------------------------------------
-# Documentación General del Proyecto
-# ------------------------------------------------------------------------------
-
-
 # ☁️ AWS EKS Enterprise Architecture | IaC with Terragrunt
 
 ![Terraform](https://img.shields.io/badge/Terraform-1.10+-purple?style=for-the-badge&logo=terraform)
