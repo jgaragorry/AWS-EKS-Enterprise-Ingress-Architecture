@@ -38,6 +38,15 @@ graph TD
     EKS[EKS Control Plane] -.-> Node1
     EKS -.-> Node2
 ```
+#### 🔐 Estrategia de Seguridad (Defensa en Profundidad)
+
+Esta arquitectura implementa un modelo de seguridad de 3 capas:
+
+1.  **Frontera (Internet Gateway):** Es el único punto de entrada/salida para el tráfico.
+2.  **Zona Pública (Filtrado):** Aquí residen los **NAT Gateways**. Actúan como un "válvula de seguridad" que permite a los nodos privados salir a internet (para actualizaciones) pero **bloquea** cualquier intento de conexión entrante desde el exterior.
+3.  **Zona Privada (Blindaje):** Los **Nodos de EKS** (donde viven las aplicaciones) están totalmente aislados en subredes privadas. No tienen dirección IP pública, haciendo técnicamente imposible que sean atacados directamente desde internet.
+
+---
 
 ### 🧩 Componentes Tecnológicos
 * **Orquestación:** Terraform & Terragrunt.
