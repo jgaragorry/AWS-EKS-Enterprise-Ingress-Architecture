@@ -22,34 +22,21 @@ graph TD
     User((Usuario)) --> Internet
     Internet --> IGW[Internet Gateway]
     
-    subgraph VPC [AWS VPC (10.0.0.0/16)]
-        direction TB
-        IGW --> PublicSubnet1
-        IGW --> PublicSubnet2
+    subgraph VPC [AWS VPC 10.0.0.0/16]
+        IGW --> PubSub1[Subnet Publica A]
+        IGW --> PubSub2[Subnet Publica B]
         
-        subgraph PublicZone [Zona Pública]
-            PublicSubnet1[Subnet Pub A]
-            PublicSubnet2[Subnet Pub B]
-            NAT[NAT Gateway]
-        end
+        PubSub1 --> NAT[NAT Gateway]
         
-        PublicSubnet1 --> NAT
+        NAT --> PrivSub1[Subnet Privada A]
+        NAT --> PrivSub2[Subnet Privada B]
         
-        subgraph PrivateZone [Zona Privada]
-            PrivateSubnet1[Subnet Priv A]
-            PrivateSubnet2[Subnet Priv B]
-            Node1[EKS Node 1]
-            Node2[EKS Node 2]
-        end
-        
-        NAT --> PrivateSubnet1
-        NAT --> PrivateSubnet2
-        
-        PrivateSubnet1 --- Node1
-        PrivateSubnet2 --- Node2
+        PrivSub1 --- Node1[EKS Node 1]
+        PrivSub2 --- Node2[EKS Node 2]
     end
     
-    EKS[EKS Control Plane] -.-> PrivateZone
+    EKS[EKS Control Plane] -.-> Node1
+    EKS -.-> Node2
 ```
 
 ### 🧩 Componentes Tecnológicos
